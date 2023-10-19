@@ -13,6 +13,10 @@ from alembic.command import upgrade
 
 from app.user_dto import UserDTO
 
+from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.exc import IntegrityError
+
+
 load_dotenv()
 
 app = FastAPI()
@@ -71,30 +75,36 @@ async def say_hello(stock: int):
 
 @app.post("/users")
 def post_producto(user: UserDTO):
-    with get_database() as db:
-        insert_if_not_exist_email_stmt = insert(User).values(
-            name=user.name,
-            age=user.age,
-            city=user.city
-        ).on_conflict_do_nothing()
-        result = db.execute(insert_if_not_exist_email_stmt)
-        db.commit()
+    try:
+        with get_database() as db:
+            insert_if_not_exist_email_stmt = insert(User).values(
+                name=user.name,
+                age=user.age,
+                city=user.city
+            ).on_conflict_do_nothing()
 
-        if result.rowcount == 0:
-            raise Exception(f"Error in save_email, the email {user.name} already exist", 409)
+            db.execute(insert_if_not_exist_email_stmt)
+            db.commit()
+            logging.info(f"User name {user.name} saved")
 
-        logging.info(f"User name {user.name} saved")
-    return JSONResponse({"Response": "Successful"})
+        return JSONResponse({"Response": "Successful"})
+    except IntegrityError as e:
+        logging.exception(f"Error in save user: {str(e)}")
+        raise HTTPException(status_code=409, detail=f"Error: The user {user.name} already exists")
 
+    except Exception as e:
+        logging.exception(f"An unexpected error occurred: {str(e)}")
+        raise HTTPException(status_code=500, detail="An unexpected error occurred")
 
 @app.delete("/users/{post_id}")
 def delete_producto(post_id: int):
     # crear una especie de restriccion para que no puedan ingresar post_id que no existan
     for index, product in enumerate(users):
-        if product["id"] == post_id:
+       if product["id"] == post_id:
             users.pop(index)
-        return {"message": "Post eliminado"}
+       return {"message": "Post eliminado"}
     raise HTTPException(status_code=400, detail="Índice fuera de rango")
+
 
 
 # @app.put("/users/{post_id}")
