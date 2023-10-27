@@ -16,6 +16,7 @@ from app.user_dto import UserDTO
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 
+from fastapi.encoders import jsonable_encoder
 
 load_dotenv()
 
@@ -64,13 +65,16 @@ def get_products():
 
 
 @app.get("/users/{id}")
-def get_product_by_id(id: int):
-    return list(filter(lambda item: item["id"] == id, users))
+def get_user(id: int):
+    try:
+        with get_database() as db:
+            result = db.query(User).filter(User.id == id).first()
+            json_result = jsonable_encoder(result)
+        return JSONResponse({"Response": json_result})
 
-
-@app.get("/users/{stock}")
-async def say_hello(stock: int):
-    return list(filter(lambda item: item["stock"] == stock, users))
+    except Exception as e:
+        logging.exception(f"An unexpected error occurred: {str(e)}, {id}")
+        raise HTTPException(status_code=500, detail="An unexpected error occurred")
 
 
 @app.post("/users")
@@ -96,24 +100,37 @@ def post_producto(user: UserDTO):
         logging.exception(f"An unexpected error occurred: {str(e)}")
         raise HTTPException(status_code=500, detail="An unexpected error occurred")
 
-@app.delete("/users/{post_id}")
-def delete_producto(post_id: int):
-    # crear una especie de restriccion para que no puedan ingresar post_id que no existan
-    for index, product in enumerate(users):
-       if product["id"] == post_id:
-            users.pop(index)
-       return {"message": "Post eliminado"}
-    raise HTTPException(status_code=400, detail="Índice fuera de rango")
 
+@app.delete("/users/{id}")
+def delete_producto(id: int):
+    try:
+        with get_database() as db:
+            result = db.query(User).filter(User.id == id)
+            if result is None:
+                raise HTTPException(status_code=500, detail=f"User doesnt exist {id}")
+            else:
+                result.delete(synchronize_session=False)
+                db.commit()
+                return JSONResponse({"Response": f"user deleted {id}"})
 
+    except Exception as e:
+        logging.exception(f"An unexpected error occurred: {str(e)}, {id}")
+        raise HTTPException(status_code=500, detail="An unexpected error occurred")
 
-# @app.put("/users/{post_id}")
-# def put_product(post_id: int, new_value: UserDTO):
-#     for index, product in enumerate(users):
-#         if product["id"] == post_id:
-#             users[index]["id"] = new_value.id
-#             users[index]["name"] = new_value.name
-#             users[index]["price"] = new_value.price
-#             users[index]["stock"] = new_value.stock
-#             return {"message": "Post actualizado"}
-#     raise HTTPException(status_code=400, detail="Índice fuera de rango")
+@app.put("/users")
+def put_user(user: UserDTO, id: int):
+    try:
+        with get_database() as db:
+            result = db.query(User).filter(User.id == id)
+
+            if result is None:
+                raise HTTPException(status_code=500, detail=f"User doesnt exist {id}")
+            else:
+                result.update(user.dict(), synchronize_session=False)
+                db.commit()
+            return result.first()
+
+    except Exception as e:
+        logging.exception(f"An unexpected error occurred: {str(e)}, {id}")
+        raise HTTPException(status_code=500, detail="An unexpected error occurred")
+
