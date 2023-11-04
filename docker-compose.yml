@@ -1,0 +1,30 @@
+version: '3.8'
+services:
+  server:
+    container_name: user
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./app:/code/app
+    env_file:
+      - .env
+    links:
+      - users-postgres
+    depends_on:
+      - users-postgres
+    command: uvicorn app.main:app --reload --host 0.0.0.0 --port 8080
+  users-postgres:
+    image: postgres:14.1-alpine
+    restart: always
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - PGDATA=/data/postgres
+    ports:
+      - '5432:5432'
+    volumes:
+      - ./postgres-data:/var/lib/postgresql/data
+      - ./create_database.sql:/docker-entrypoint-initdb.d/create_database.sql
