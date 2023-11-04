@@ -43,14 +43,7 @@ users = [
         "name": "victor",
         "age": 10,
         "city": "Santiago"
-    },
-    {
-        "id": 2,
-        "name": "Andrea",
-        "age": 20,
-        "city": "Londres"
     }
-
 ]
 
 
